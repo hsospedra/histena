@@ -15,7 +15,6 @@ from dbAnnot import *
 from PersonUI import *
 from LocationUI import *
 from KeywordUI import *
-
 from threading import Timer
 import functools
 
@@ -337,21 +336,33 @@ class UI(object):
     def resetTags(self):       
         self._annotations = []
 
+        for tag in self._text.tag_names():
+            if tag.startswith("overlap_"):
+                self._text.tag_delete(tag)
+
         # clear tags before adding them
         self._text.tag_delete("keyword")
         self._text.tag_delete("location")
         self._text.tag_delete("person")
 
-        self._text.tag_config("keyword",  background="green", foreground="black", font=("arial", "12", "bold"))
-        self._text.tag_config("location", background="yellow", foreground="black", font=("arial", "12", "bold"))
-        self._text.tag_config("person", background="red", foreground="black", font=("arial", "12", "bold"))
+        self._text.tag_config("keyword", background="#A8DDB5", foreground="black", font=("arial", "12", "bold"))
+        self._text.tag_config("location", background="#FFE28A", foreground="black", font=("arial", "12", "bold"))
+        self._text.tag_config("person", background="#F17A7A", foreground="black", font=("arial", "12", "bold"))
 
-    def updateAnnotations(self):   
+         # Overlap colors
+        self._text.tag_config("overlap_location_person", background="#F8AE82")
+        self._text.tag_config("overlap_keyword_location", background="#D4E09F")
+        self._text.tag_config("overlap_keyword_person", background="#CCACA8")
+
+    
+    def updateAnnotations(self):
         self.resetTags()
 
         index = self._docsList.curselection()[0]
         docId = self._docs[self._docsList.get(index)]
         records = dbAnnot.db.execute("SELECT * from annotations where id_doc="+str(docId))
+
+        intervals = []
 
         for row in records:
             typeAnnotation = row[1]
@@ -360,6 +371,43 @@ class UI(object):
             self._text.tag_add(typeAnnotation, begin, end)
             self._annotations.append(row)
 
+            # Store each annotation to compare it with the others.
+            intervals.append((typeAnnotation, begin, end))
+
+        # Compare every pair of annotations.
+        for i in range(len(intervals)):
+            for j in range(i + 1, len(intervals)):
+
+                type1, begin1, end1 = intervals[i]
+                type2, begin2, end2 = intervals[j]
+
+                # Ignore pairs belonging to the same annotation type.
+                if type1 == type2:
+                    continue
+
+                # Determine which overlap color should be used.
+                types = sorted([type1, type2])
+                overlapTag = "overlap_" + types[0] + "_" + types[1]
+
+                # Find where the shared text region begins.
+                if self._text.compare(begin1, ">", begin2):
+                    overlapBegin = begin1
+                else:
+                    overlapBegin = begin2
+
+                # Find where the shared text region ends.
+                if self._text.compare(end1, "<", end2):
+                    overlapEnd = end1
+                else:
+                    overlapEnd = end2
+
+                # An overlap exists only if its start is before its end.
+                if self._text.compare(overlapBegin, "<", overlapEnd):
+                    self._text.tag_add(overlapTag, overlapBegin, overlapEnd)
+                    self._text.tag_raise(overlapTag)
+   
+        # Keep the text selection visible above annotation colors.
+        self._text.tag_raise("sel")
     
     def createDocsTab(self):
         self._docsTab = ttk.Frame(self._tabs)
@@ -545,7 +593,7 @@ class UI(object):
         options.pack(side=tk.RIGHT, fill=tk.Y)
     
         # type of annotation
-        annotTypes = [("keyword", 2, "green"), ("location", 1, "yellow"), ("person", 3, "red") ]
+        annotTypes = [("keyword", 2, "#A8DDB5"),("location", 1, "#FFE28A"),("person", 3, "#F17A7A")]
 
         varType = tk.IntVar()
         # first selection before any click
@@ -553,7 +601,7 @@ class UI(object):
         self._typeSelected = annotTypes[0][0]
 
         for name, idName,color in annotTypes:
-            tk.Radiobutton(options, text=name, bg=color, variable=varType, value=idName, command=lambda t=name, v=varType: self.selectType(t, v)).pack(side=tk.LEFT)
+            tk.Radiobutton(options, text=name, bg=color, fg="black", activeforeground="black", variable=varType, value=idName, command=lambda t=name, v=varType: self.selectType(t, v)).pack(side=tk.LEFT)
             
         # ok button
         self._annotate = tk.Button(options, text ="annotate",command=self.addAnnotation)
