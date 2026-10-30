@@ -508,6 +508,7 @@ class UI(object):
 
     def updateTooltip(self, tooltipText):
         tooltipText.msg = self.setTooltipText()
+        self._window.after(100, self.updateTooltip, tooltipText)
         """
         TODO hide tooltipText if msg is empty
         if tooltipText.msg=="" and tooltipText.state()!='withdrawn':
@@ -579,7 +580,8 @@ class UI(object):
         tooltipText = ToolTip(self._text)
         tooltipText.follow = True 
         tooltipText.delay = 0.1
-        self.rt = RepeatedTimer(0.1, self.updateTooltip, tooltipText)
+        #self.rt = RepeatedTimer(0.1, self.updateTooltip, tooltipText)
+        self._window.after(100, self.updateTooltip, tooltipText)
 
         self.resetTags()
         citedTextFrame = tk.Frame(citeFrame)
@@ -853,7 +855,7 @@ class UI(object):
         self.updateAnnotations()
 
     def onClose(self):
-        self.rt.stop()
+        #self.rt.stop()
         self._window.destroy()
 
     def run(self):
