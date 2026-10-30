@@ -345,9 +345,9 @@ class UI(object):
         self._text.tag_delete("location")
         self._text.tag_delete("person")
 
-        self._text.tag_config("keyword", background="#A8DDB5", foreground="black", font=("arial", "12", "bold"))
-        self._text.tag_config("location", background="#FFE28A", foreground="black", font=("arial", "12", "bold"))
-        self._text.tag_config("person", background="#F17A7A", foreground="black", font=("arial", "12", "bold"))
+        self._text.tag_config("keyword", background="#A8DDB5", foreground="black", font=("arial", self.fontSize, "bold"))
+        self._text.tag_config("location", background="#FFE28A", foreground="black", font=("arial", self.fontSize, "bold"))
+        self._text.tag_config("person", background="#F17A7A", foreground="black", font=("arial", self.fontSize, "bold"))
 
          # Overlap colors
         self._text.tag_config("overlap_location_person", background="#F8AE82")
@@ -434,6 +434,15 @@ class UI(object):
         
     def selectType(self, text, v):
         self._typeSelected = text
+
+    def changeFontSize(self, amount):
+        self.fontSize = max(8, min(30, self.fontSize + amount))
+        self._text.config(font=("arial", self.fontSize))
+
+        # Update the font size of annotations
+        for tag in ["keyword", "location", "person"]:
+            self._text.tag_config(tag, font=("arial", self.fontSize, "bold"))
+
 
     def getKeywordTooltip(self, idAnnotation):
         # get idKeyword linked to this idAnnotation
@@ -572,7 +581,20 @@ class UI(object):
 
         textFrame = tk.Frame(citeFrame)
         textFrame.pack(fill=tk.BOTH, expand=True)
-        self._text = tk.Text(textFrame, font=("arial","12"))
+        textFrame.pack_propagate(False)
+
+        # Font size controls
+        zoomFrame = tk.Frame(textFrame)
+        zoomFrame.pack(fill=tk.X)
+
+        plusButton = tk.Button(zoomFrame, text="+", command=lambda: self.changeFontSize(1))
+        plusButton.pack(side=tk.RIGHT, padx=5)
+
+        minusButton = tk.Button(zoomFrame, text="-", command=lambda: self.changeFontSize(-1))
+        minusButton.pack(side=tk.RIGHT)
+
+        self.fontSize = 12
+        self._text = tk.Text(textFrame, font=("arial", self.fontSize))
         self._text.pack(fill=tk.BOTH, expand=True)
         self._text.bind("<ButtonRelease-1>", self.mouseUp)
         self._text.config(wrap=tk.WORD)
@@ -585,7 +607,7 @@ class UI(object):
 
         self.resetTags()
         citedTextFrame = tk.Frame(citeFrame)
-        citedTextFrame.pack(fill=tk.X, expand=True, pady=5)
+        citedTextFrame.pack(fill=tk.X, pady=5)
 
         self._citedText = tk.Text(citedTextFrame, font=("arial","12","italic"), height=10)
         self._citedText.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
