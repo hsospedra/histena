@@ -17,6 +17,7 @@ from LocationUI import *
 from KeywordUI import *
 from threading import Timer
 import functools
+import tkintermapview
 
 class RepeatedTimer(object):
     def __init__(self, interval, function, *args, **kwargs):
@@ -154,6 +155,7 @@ class UI(object):
         self.createDocsTab();
         self.createCiteFrame();
         self.createAddSourceFrame();
+        self.createMapTab()
         
         self._tabs.pack(expand=1, fill="both")
 
@@ -469,7 +471,74 @@ class UI(object):
                     self._text.tag_raise(overlapTag)
    
         # Keep the text selection visible above annotation colors.
+
         self._text.tag_raise("sel")
+
+    def createMapTab(self):
+
+        # Create the Map tab
+        self._mapTab = ttk.Frame(self._tabs)
+        self._tabs.add(self._mapTab, text="map")
+
+        # Create the interactive map
+        self._map = tkintermapview.TkinterMapView(
+            self._mapTab,
+            corner_radius=0
+        )
+        self._map.pack(fill=tk.BOTH, expand=True)
+
+        # Start with the map centered on Catalonia
+        self._map.set_position(41.8, 1.7)
+        self._map.set_zoom(8)
+
+        # Update map when changing tabs
+        self._tabs.bind("<<NotebookTabChanged>>", self.onMapTabChanged)
+
+    def onMapTabChanged(self, event):
+
+        # Update locations only when the Map tab is selected
+        if self._tabs.select() == str(self._mapTab):
+            self.updateMapLocations()
+
+    def updateMapLocations(self):
+
+        # Remove previous markers
+        self._map.delete_all_marker()
+
+        # Check if a document is selected
+        if len(self._docsList.curselection()) == 0:
+            return
+
+        # Get the selected document ID
+        index = self._docsList.curselection()[0]
+        docName = self._docsList.get(index)
+        docId = self._docs[docName]
+
+        # Get annotated locations for this document
+        sql = """
+            SELECT DISTINCT locations.name, locations.lat, locations.long
+            FROM annotations
+            JOIN annotationLocation
+                ON annotations.id = annotationLocation.id_annotation
+            JOIN locations
+                ON annotationLocation.id_location = locations.id
+            WHERE annotations.id_doc = ?
+              AND annotations.type = 'location'
+        """
+
+        records = dbAnnot.db.execute(sql, (docId,))
+
+        # Add a marker for each location
+        for name, lat, lon in records.fetchall():
+
+            if lat is None or lon is None:
+                continue
+
+            self._map.set_marker(
+                float(lat),
+                float(lon),
+                text=name
+            )
     
     def createDocsTab(self):
         self._docsTab = ttk.Frame(self._tabs)
