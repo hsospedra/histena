@@ -241,6 +241,66 @@ class UI(object):
         self._authorInfo.set("-")
         self._locationInfo.set("-")
 
+    def openPersonDocument(self, docId, begin, end):
+
+        # Find the work containing the document
+        sql = "SELECT id_work FROM docs WHERE id=?"
+        values = (docId,)
+
+        records = dbAnnot.db.execute(sql, values)
+        result = records.fetchone()
+
+        if result is None:
+            return
+
+        workId = result[0]
+
+        # Find and select the work
+        for i in range(self._worksList.size()):
+
+            workName = self._worksList.get(i)
+            currentWorkId = self._works[workName]
+
+            if currentWorkId == workId:
+                self._worksList.selection_clear(0, tk.END)
+                self._worksList.selection_set(i)
+                self._worksList.see(i)
+                break
+
+        # Load the documents belonging to this work
+        self.selectWork(None)
+
+        # Find and select the original document
+        for i in range(self._docsList.size()):
+
+            docName = self._docsList.get(i)
+            currentDocId = self._docs[docName]
+
+            if str(currentDocId) == str(docId):
+                self._docsList.selection_clear(0, tk.END)
+                self._docsList.selection_set(i)
+                self._docsList.see(i)
+                break
+
+        # Open the selected document
+        self._tabs.select(self._docsTab)
+        self.selectDoc(None)
+
+        # Highlight the original annotation
+        self._text.tag_remove("opened_reference", "1.0", tk.END)
+        self._text.tag_add("opened_reference", begin, end)
+
+        self._text.tag_config(
+            "opened_reference",
+            background="#8AD4FF",
+            foreground="black"
+        )
+
+        self._text.tag_raise("opened_reference")
+
+        # Scroll to the annotation
+        self._text.see(begin)
+
     def selectDoc(self, event):
         #value = docsList.get(docsList.curselection())
         # starts at 0
@@ -322,6 +382,8 @@ class UI(object):
         if self._typeSelected=="person":
             self._annotPerson = PersonAnnotation(self._window, selectedText)
             self._annotPerson .signalAdd = self.addPerson
+            self._annotPerson.signalOpen = self.openPersonDocument
+
             return
         if self._typeSelected=="location":
             self._annotLocation = LocationAnnotation(self._window, selectedText)
@@ -794,6 +856,7 @@ class UI(object):
     def addAuthorToDoc(self):   
         author = PersonAnnotation(self._window, "")
         author.signalAdd = self.setAuthor
+        author.signalOpen = self.openPersonDocument
 
 
     def setLocation(self, idLocation):
